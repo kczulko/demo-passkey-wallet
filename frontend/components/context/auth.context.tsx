@@ -14,7 +14,8 @@ type AuthState = {
 }
 
 const initialState: AuthState = {
-    isLoaded: false,
+    // isLoaded: false,
+    isLoaded: true,
     isLoggedIn: false,
     email: null,
     userId: null,
@@ -22,28 +23,28 @@ const initialState: AuthState = {
 };
 
 async function authStateFetcher(url: string): Promise<AuthState> {
-  let response = await axios.get(url, {withCredentials: true})
-  if (response.status === 200) {
-      return {
-          isLoaded: true,
-          isLoggedIn: true,
-          email: response.data["email"],
-          userId: response.data["ID"],
-          subOrganizationId: response.data["subOrganizationId"],
-      }
-  } else if (response.status === 204) {
-    // A 204 indicates "no current user"
-    return {
-      isLoaded: true,
-      isLoggedIn: false,
-      email: response.data["email"],
-      userId: response.data["userId"],
-      subOrganizationId: response.data["subOrganizationId"],
-    }
-  } else {
+  // let response = await axios.get(url, {withCredentials: true})
+  // if (response.status === 200) {
+  //     return {
+  //         isLoaded: true,
+  //         isLoggedIn: true,
+  //         email: response.data["email"],
+  //         userId: response.data["ID"],
+  //         subOrganizationId: response.data["subOrganizationId"],
+  //     }
+  // } else if (response.status === 204) {
+  //   // A 204 indicates "no current user"
+  //   return {
+  //     isLoaded: true,
+  //     isLoggedIn: false,
+  //     email: response.data["email"],
+  //     userId: response.data["userId"],
+  //     subOrganizationId: response.data["subOrganizationId"],
+  //   }
+  // } else {
       // Other status codes indicate an error of some sort
       return initialState
-  }
+//  }
 }
 
 export const AuthContext = createContext<{
@@ -63,16 +64,16 @@ export const AuthProvider = ({
 }) => {
   const [state, setState] = useState(initialState)
 
-  const { data, error } = useSWR(whoamiUrl(), authStateFetcher)
-  if (error) {
-      console.error("error while loading auth status!", error);
-  }
+  // const { data, error } = useSWR(whoamiUrl(), authStateFetcher)
+  // if (error) {
+  //     console.error("error while loading auth status!", error);
+  // }
 
-  useEffect(() => {
-      if (data !== undefined) {
-          setState(data);
-      }
-  }, [data])
+  // useEffect(() => {
+  //     if (data !== undefined) {
+  //         setState(data);
+  //     }
+  // }, [data])
 
   return (
     <AuthContext.Provider value={{

@@ -115,7 +115,7 @@ func main() {
 	})
 
 	router.GET("/api/whoami", func(ctx *gin.Context) {
-		user := getCurrentUser(ctx)
+		user := nil //getCurrentUser(ctx)
 		if user != nil {
 			var subOrganizationId *string
 			if user.SubOrganizationId.Valid {

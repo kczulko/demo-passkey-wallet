@@ -12,6 +12,7 @@ import { useSWRConfig } from 'swr';
 import Link from 'next/link';
 import { WebauthnStamper } from '@turnkey/webauthn-stamper';
 
+// const fs = require('fs-extra')
 const DEMO_PASSKEY_WALLET_RPID = process.env.NEXT_PUBLIC_DEMO_PASSKEY_WALLET_RPID!;
 
 type authenticationFormData = {
@@ -85,16 +86,17 @@ async function registerOrAuthenticate (data: authenticationFormData) {
 };
 
 async function subOrganizationIdForEmail(email: string): Promise<string|null> {
-  const res = await axios.get(registrationStatusUrl(email));
+  //const res = await axios.get(registrationStatusUrl(email));
 
   // If API returns a non-empty 200, this email maps to an existing user.
-  if (res.status == 200) {
-    return res.data["subOrganizationId"]
-  } else if (res.status === 204) {
+  //if (res.status == 200) {
+  //  return res.data["subOrganizationId"]
+  //} else if (res.status === 204) {
+    // window.alert("returning null!!!")
     return null
-  } else {
-    throw new Error(`Unexpected response from registration status endpoint: ${res.status}: ${res.data}`);
-  }
+  //} else {
+  //  throw new Error(`Unexpected response from registration status endpoint: ${res.status}: ${res.data}`);
+  //}
 }
 
 // In order to know whether the user is logged in for `subOrganizationId`, we make them sign
@@ -140,7 +142,7 @@ async function authenticate(subOrganizationId: string) {
 async function signup(email: string) {
   const challenge = generateRandomBuffer();
   const authenticatorUserId = generateRandomBuffer();
-  
+
   // An example of possible options can be found here:
   // https://www.w3.org/TR/webauthn-2/#sctn-sample-registration
   const attestation = await getWebAuthnAttestation({
@@ -169,11 +171,17 @@ async function signup(email: string) {
     },
   });
 
+  console.log({
+    email: email,
+    attestation,
+    challenge: base64UrlEncode(challenge),
+  })
+
   const res = await axios.post(registerUrl(), {
     email: email,
     attestation,
     challenge: base64UrlEncode(challenge),
-  }, { withCredentials: true });
+  }, { withCredentials: false });
 
   if (res.status === 200) {
     console.log("Successfully registered! Redirecting you to dashboard");
