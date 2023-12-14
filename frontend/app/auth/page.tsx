@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { TurnkeyClient, getWebAuthnAttestation } from '@turnkey/http'
 import axios from 'axios';
 import { useForm } from "react-hook-form";
-import { authenticateUrl, registerUrl, registrationStatusUrl, whoamiUrl } from "../../utils/urls"
+import { authenticateUrl, registerUrl, pushSignatureUrl, obtainUnsignedPayloadUrl, registrationStatusUrl, whoamiUrl } from "../../utils/urls"
 import { useAuth } from '@/components/context/auth.context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -143,6 +143,8 @@ async function signup(email: string) {
   const challenge = generateRandomBuffer();
   const authenticatorUserId = generateRandomBuffer();
 
+  alert("Creating sub-organization...")
+
   // An example of possible options can be found here:
   // https://www.w3.org/TR/webauthn-2/#sctn-sample-registration
   const attestation = await getWebAuthnAttestation({
@@ -171,12 +173,6 @@ async function signup(email: string) {
     },
   });
 
-  console.log({
-    email: email,
-    attestation,
-    challenge: base64UrlEncode(challenge),
-  })
-
   const res = await axios.post(registerUrl(), {
     email: email,
     attestation,
@@ -184,12 +180,53 @@ async function signup(email: string) {
   }, { withCredentials: false });
 
   if (res.status === 200) {
-    console.log("Successfully registered! Redirecting you to dashboard");
-    mutate(whoamiUrl())
-    router.push("/dashboard")
-    return
+    console.log("Successfully registered!");
   } else {
     throw new Error(`Unexpected response from registration endpoint: ${res.status}: ${res.data}`);
+  }
+
+  // alert("Obtaining payload to sign...")
+
+  const payload = await axios.get(obtainUnsignedPayloadUrl(), { withCredentials: false });
+
+  if (payload.status === 200) {
+    console.log("Successfully constructed tx: ", payload.data["unsignedTransaction"]);
+  } else {
+    throw new Error(`Unexpected response from tx construction endpoint: ${payload.status}: ${payload.data}`);
+  }
+
+  alert("Asking the user to authorize the payload signature...")
+
+  const stamper = new WebauthnStamper({
+    rpId: process.env.NEXT_PUBLIC_DEMO_PASSKEY_WALLET_RPID!
+  });
+  const client = new TurnkeyClient({
+    baseUrl: process.env.NEXT_PUBLIC_TURNKEY_API_BASE_URL!,
+  }, stamper);
+
+  const signedRawPayload = await client.stampSignRawPayload({
+    type: "ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2",
+    organizationId: payload.data["organizationId"],
+    timestampMs: Date.now().toString(),
+    parameters: {
+      signWith: payload.data["walletAddress"],
+      payload: payload.data["unsignedTransaction"],
+      encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
+      hashFunction: "HASH_FUNCTION_NOT_APPLICABLE"
+    }
+  });
+
+  console.log(signedRawPayload)
+
+  const sendRes = await axios.post(pushSignatureUrl(), 
+    signedRawPayload
+  , { withCredentials: false });
+
+  if (sendRes.status === 200) {
+    alert("Successfully registered! Redirecting to polkadotjs");
+    window.location.replace(sendRes.data["polkadotjs"]);
+  } else {
+    throw new Error(`Unexpected response when submitting signed transaction: ${sendRes.status}: ${sendRes.data}`);
   }
 }
 

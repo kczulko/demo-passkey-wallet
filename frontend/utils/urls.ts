@@ -5,6 +5,18 @@ export function registerUrl(): string {
     return BACKEND_API_BASE_URL +  "/api/register";
 }
 
+export function obtainUnsignedPayloadUrl(): string {
+    return BACKEND_API_BASE_URL +  "/api/obtainUnsignedPayload";
+}
+
+export function pushSignatureUrl(): string {
+    return BACKEND_API_BASE_URL +  "/api/pushSignature";
+}
+
+export function payloadUrl(): string {
+    return BACKEND_API_BASE_URL +  "/api/sign";
+}
+
 export function authenticateUrl(): string {
     return BACKEND_API_BASE_URL +  "/api/authenticate";
 }
