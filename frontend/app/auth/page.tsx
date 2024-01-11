@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { TurnkeyClient, getWebAuthnAttestation } from '@turnkey/http'
 import axios from 'axios';
 import { useForm } from "react-hook-form";
-import { authenticateUrl, registerUrl, pushSignatureUrl, obtainUnsignedPayloadUrl, registrationStatusUrl, whoamiUrl } from "../../utils/urls"
+import { authenticateUrl, registerUrl, pushSignatureUrl, obtainUnsignedPayloadUrl, unsignedClaimHandlePayload, signedClaimHandlePayload, registrationStatusUrl, whoamiUrl } from "../../utils/urls"
 import { useAuth } from '@/components/context/auth.context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -134,6 +134,56 @@ async function authenticate(subOrganizationId: string) {
   }
 }
 
+
+async function stampPayloadAndPush(obtainPayloadUrl: string, pushStampedSignatureUrl: string): string {
+  console.log(obtainPayloadUrl)
+  console.log(pushStampedSignatureUrl)
+
+  const payload = await axios.get(obtainPayloadUrl, { withCredentials: false });
+
+  if (payload.status === 200) {
+    console.log("Successfully constructed tx: ", payload.data["unsignedTransaction"]);
+  } else {
+    throw new Error(`Unexpected response from tx construction endpoint: ${payload.status}: ${payload.data}`);
+  }
+
+  alert("Asking the user to authorize the payload signature...")
+
+  const stamper = new WebauthnStamper({
+    rpId: process.env.NEXT_PUBLIC_DEMO_PASSKEY_WALLET_RPID!
+  });
+  const client = new TurnkeyClient({
+    baseUrl: process.env.NEXT_PUBLIC_TURNKEY_API_BASE_URL!,
+  }, stamper);
+
+  const signedRawPayload = await client.stampSignRawPayload({
+    type: "ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2",
+    organizationId: payload.data["organizationId"],
+    timestampMs: Date.now().toString(),
+    parameters: {
+      signWith: payload.data["walletAddress"],
+      payload: payload.data["unsignedTransaction"],
+      encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
+      hashFunction: "HASH_FUNCTION_NOT_APPLICABLE"
+    }
+  });
+
+  console.log(signedRawPayload)
+
+  const sendRes = await axios.post(pushStampedSignatureUrl,
+    signedRawPayload
+  , { withCredentials: false });
+
+  if (sendRes.status === 200) {
+    //alert("Successfully registered! Redirecting to polkadotjs");
+    //window.location.replace(sendRes.data["polkadotjs"]);
+    return sendRes.data["polkadotjs"]
+  } else {
+    throw new Error(`Unexpected response when submitting signed transaction: ${sendRes.status}: ${sendRes.data}`);
+  }
+
+}
+
 /**
  * This signup function triggers a webauthn "create" ceremony and POSTs the resulting attestation to the backend
  * The backend uses Turnkey to create a brand new sub-organization with a new private key.
@@ -185,49 +235,12 @@ async function signup(email: string) {
     throw new Error(`Unexpected response from registration endpoint: ${res.status}: ${res.data}`);
   }
 
-  // alert("Obtaining payload to sign...")
+  console.log("first call")
+  await stampPayloadAndPush(obtainUnsignedPayloadUrl(), pushSignatureUrl())
+  // console.log(redirectionUrl)
+  const redirectionUrl = await stampPayloadAndPush(unsignedClaimHandlePayload(), signedClaimHandlePayload())
+  window.location.replace(redirectionUrl)
 
-  const payload = await axios.get(obtainUnsignedPayloadUrl(), { withCredentials: false });
-
-  if (payload.status === 200) {
-    console.log("Successfully constructed tx: ", payload.data["unsignedTransaction"]);
-  } else {
-    throw new Error(`Unexpected response from tx construction endpoint: ${payload.status}: ${payload.data}`);
-  }
-
-  alert("Asking the user to authorize the payload signature...")
-
-  const stamper = new WebauthnStamper({
-    rpId: process.env.NEXT_PUBLIC_DEMO_PASSKEY_WALLET_RPID!
-  });
-  const client = new TurnkeyClient({
-    baseUrl: process.env.NEXT_PUBLIC_TURNKEY_API_BASE_URL!,
-  }, stamper);
-
-  const signedRawPayload = await client.stampSignRawPayload({
-    type: "ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2",
-    organizationId: payload.data["organizationId"],
-    timestampMs: Date.now().toString(),
-    parameters: {
-      signWith: payload.data["walletAddress"],
-      payload: payload.data["unsignedTransaction"],
-      encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
-      hashFunction: "HASH_FUNCTION_NOT_APPLICABLE"
-    }
-  });
-
-  console.log(signedRawPayload)
-
-  const sendRes = await axios.post(pushSignatureUrl(), 
-    signedRawPayload
-  , { withCredentials: false });
-
-  if (sendRes.status === 200) {
-    alert("Successfully registered! Redirecting to polkadotjs");
-    window.location.replace(sendRes.data["polkadotjs"]);
-  } else {
-    throw new Error(`Unexpected response when submitting signed transaction: ${sendRes.status}: ${sendRes.data}`);
-  }
 }
 
   return (

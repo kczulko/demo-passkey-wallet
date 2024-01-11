@@ -13,6 +13,14 @@ export function pushSignatureUrl(): string {
     return BACKEND_API_BASE_URL +  "/api/pushSignature";
 }
 
+export function unsignedClaimHandlePayload(): string {
+    return BACKEND_API_BASE_URL +  "/api/unsignedClaimHandlePayload";
+}
+
+export function signedClaimHandlePayload(): string {
+    return BACKEND_API_BASE_URL +  "/api/signedClaimHandlePayload";
+}
+
 export function payloadUrl(): string {
     return BACKEND_API_BASE_URL +  "/api/sign";
 }
